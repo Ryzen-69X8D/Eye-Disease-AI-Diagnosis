@@ -87,16 +87,88 @@ dataset/
 
 ---
 
-## 📊 Model Architecture Diagram (Mermaid)
+## 📊 Architecture Diagram
 ```mermaid
 flowchart TD
 
-A[Input Eye Image 224x224 RGB] --> B[Preprocessing Resize Normalize]
-B --> C[EfficientNetB3 Backbone ImageNet]
-C --> D[Conv Blocks MBConv DepthwiseConv SELayers]
-D --> E[Global Average Pooling]
-E --> F[Dropout 0.3]
-F --> G[Dense Classifier Head]
-G --> H[Softmax Output 6 Classes]
+%% ============================================
+%% FRONTEND SYSTEM
+%% ============================================
+subgraph FRONTEND React Vite Tailwind
+    FE1[User Interface]
+    FE2[Image Upload Module]
+    FE3[Webcam Capture Module]
+    FE4[Prediction Dashboard Results]
+
+    FE1 --> FE2
+    FE1 --> FE3
+    FE2 --> API
+    FE3 --> API
+end
+
+%% ============================================
+%% API GATEWAY AND ROUTING
+%% ============================================
+API[FastAPI Main Router]
+API --> VR[Validation and Request Parser]
+VR --> BE
+
+%% ============================================
+%% BACKEND PROCESSING LAYERS
+%% ============================================
+subgraph BACKEND FastAPI Server
+    BE[Application Controller]
+    BP[Image Preprocessing Resize Normalize]
+    BE --> BP
+    BP --> MS
+end
+
+%% ============================================
+%% MODEL SERVICE
+%% ============================================
+subgraph MODEL SERVICE PyTorch
+    MS[Model Loader EfficientNetB3]
+    MI[Inference Forward Pass]
+    MP[Softmax Output Six Classes]
+    MS --> MI --> MP
+end
+
+MP --> RESP
+
+%% ============================================
+%% RESPONSE HANDLING
+%% ============================================
+RESP[JSON Response Prediction Confidence]
+RESP --> FE4
+
+%% ============================================
+%% TRAINING AND DATA PIPELINE
+%% ============================================
+subgraph TRAINING PIPELINE
+    DS[Dataset Folder Eye Images]
+    DA[Data Augmentation Flip Rotate Color Adjust]
+    DL[Data Loader Train Validation Split]
+    TM[Training Script train model py]
+    EV[Model Evaluation Metrics]
+    SM[Save Model File models model pth]
+
+    DS --> DA --> DL --> TM --> EV --> SM
+end
+
+%% BACKEND LOADS TRAINED MODEL
+SM --> MS
+
+%% ============================================
+%% STORAGE SYSTEM
+%% ============================================
+subgraph STORAGE
+    ST1[Model Files model pth]
+    ST2[Dataset Local or External]
+    ST3[Training Logs and Metrics]
+end
+
+SM --> ST1
+DS --> ST2
+EV --> ST3
 ```
 
