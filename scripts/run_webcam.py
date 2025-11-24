@@ -6,7 +6,7 @@ import os
 from PIL import Image
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH = os.path.join(PROJECT_ROOT, 'model.pth')
+MODEL_PATH = os.path.join(PROJECT_ROOT, 'models', 'model.pth')
 
 CLASSES = ['Cataract', 'Conjunctivitis', 'Eyelid', 'Jaundice', 'Normal', 'Uveitis']
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -14,17 +14,21 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def load_model():
     print(f"Loading model from: {MODEL_PATH}")
     if not os.path.exists(MODEL_PATH):
-        print("❌ Error: model.pth not found!")
+        print("❌ Error: model.pth not found! Run training script first.")
         return None
 
     model = models.efficientnet_b3(weights=None)
     num_ftrs = model.classifier[1].in_features
     model.classifier[1] = torch.nn.Linear(num_ftrs, len(CLASSES))
     
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
-    model = model.to(DEVICE)
-    model.eval()
-    return model
+    try:
+        model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+        model = model.to(DEVICE)
+        model.eval()
+        return model
+    except Exception as e:
+        print(f"❌ Model Load Error: {e}")
+        return None
 
 def main():
     model = load_model()
@@ -39,6 +43,8 @@ def main():
     cap = cv2.VideoCapture(0)
     cap.set(3, 1280)
     cap.set(4, 720)
+
+    print("Press 'q' to quit.")
 
     while True:
         ret, frame = cap.read()
@@ -62,6 +68,9 @@ def main():
         cv2.putText(frame, f"Conf: {conf_score:.1f}%", (30, 90), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 1)
         
+        h, w, _ = frame.shape
+        cv2.rectangle(frame, (w//2 - 150, h//2 - 150), (w//2 + 150, h//2 + 150), (255, 255, 255), 1)
+
         cv2.imshow('Eye Disease Detector', frame)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
 

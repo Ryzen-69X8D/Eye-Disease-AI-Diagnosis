@@ -13,7 +13,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 
 DATA_DIR = os.path.join(project_root, 'dataset')
-MODEL_PATH = os.path.join(project_root, 'model.pth')
+MODEL_PATH = os.path.join(project_root, 'models', 'model.pth')
+
+os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
 
 BATCH_SIZE = 16   
 IMG_SIZE = 224
@@ -87,8 +89,8 @@ def main():
             optimizer.zero_grad()
 
             outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
             loss = criterion(outputs, labels)
+            _, preds = torch.max(outputs, 1)
 
             loss.backward()
             optimizer.step()

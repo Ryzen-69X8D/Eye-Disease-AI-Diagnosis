@@ -2,11 +2,11 @@ import streamlit as st
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
-from PIL import Image, ImageOps
+from PIL import Image
 import os
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH = os.path.join(PROJECT_ROOT, 'model.pth')
+MODEL_PATH = os.path.join(PROJECT_ROOT, 'models', 'model.pth')
 
 CLASSES = ['Cataract', 'Conjunctivitis', 'Eyelid', 'Jaundice', 'Normal', 'Uveitis']
 
@@ -37,7 +37,7 @@ def main():
     model = load_model()
     
     if model is None:
-        st.error(f"Model not found at {MODEL_PATH}. Train first!")
+        st.error(f"Model not found at {MODEL_PATH}. Please train the model first.")
         return
 
     uploaded_file = st.file_uploader("Upload Scan", type=["jpg", "png"])
@@ -63,6 +63,8 @@ def main():
             st.subheader(f"Result: {cls} ({conf.item()*100:.1f}%)")
             info = MEDICAL_INFO.get(cls, {})
             st.info(f"**Action:** {info.get('action', '')}")
+            
+            st.bar_chart({CLASSES[i]: probs[i].item() for i in range(len(CLASSES))})
 
 if __name__ == "__main__":
     main()
