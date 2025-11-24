@@ -91,12 +91,12 @@ dataset/
 ```mermaid
 flowchart TD
 
-A[Input Eye Image<br/>224×224 RGB] --> B[Preprocessing<br/>• Resize<br/>• Normalize]
-B --> C[EfficientNetB3 Backbone<br/>Pretrained on ImageNet]
-C --> D[Convolutional Blocks<br/>• MBConv layers<br/>• Depthwise Separable Convs<br/>• Squeeze-and-Excitation]
+A[Input Eye Image (224x224 RGB)] --> B[Preprocessing: Resize, Normalize]
+B --> C[EfficientNetB3 Backbone (ImageNet)]
+C --> D[Conv Blocks: MBConv, DW Convs, SE Layers]
 D --> E[Global Average Pooling]
-E --> F[Dropout Layer<br/>(0.3)]
-F --> G[Dense Layer<br/>Classifier Head]
-G --> H[Softmax Output<br/>6 Disease Classes]
+E --> F[Dropout (0.3)]
+F --> G[Dense Classifier Head]
+G --> H[Softmax Output: 6 Classes]
 ```
 
