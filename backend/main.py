@@ -9,13 +9,13 @@ import torch.nn as nn
 import os
 import numpy as np
 import base64
+import gc 
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 try:
     from medical_data import MEDICAL_INFO
 except ImportError:
@@ -34,8 +34,7 @@ app.add_middleware(
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 MODELS_DIR = os.path.join(project_root, "models")
-DATA_ROOT = os.path.join(project_root, "dataset")
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cpu") 
 
 HIERARCHY = {
     0: {'name': 'Adnexal Oculoplastic', 'model_file': 'specialist_eyelid.pth', 'path': 'Adnexal Oculoplastic'},
@@ -44,55 +43,60 @@ HIERARCHY = {
 }
 
 CLASS_MAP = {
-    0: ['Eyelid'], 
+    0: ['Eyelid'],
     1: ['Cataract', 'Uveitis'],
     2: ['Conjunctivitis', 'Jaundice', 'Normal', 'Pterygium']
 }
 
-def load_model_architecture(model_type, num_classes):
-    if model_type == 'router':
-        model = models.mobilenet_v3_large(weights=None)
-        model.classifier[3] = torch.nn.Linear(model.classifier[3].in_features, num_classes)
-        return model
-    else:
-        model = models.efficientnet_b3(weights=None)
-        model.classifier[1] = torch.nn.Linear(model.classifier[1].in_features, num_classes)
-        return model
+def build_router():
+    model = models.mobilenet_v3_large(weights=None)
+    model.classifier[3] = torch.nn.Linear(model.classifier[3].in_features, len(HIERARCHY))
+    return model
 
-def load_hierarchical_models():
-    print("Loading hierarchical models...")
-    
-    router_model = load_model_architecture('router', len(HIERARCHY))
-    router_path = os.path.join(MODELS_DIR, 'router.pth')
-    if os.path.exists(router_path):
-        router_model.load_state_dict(torch.load(router_path, map_location=DEVICE))
-        router_model.to(DEVICE).eval()
-    else:
-        print(f"❌ ROUTER MISSING at {router_path}")
-        return None, None
+def build_specialist(num_classes):
+    model = models.efficientnet_b3(weights=None)
+    model.classifier[1] = torch.nn.Linear(model.classifier[1].in_features, num_classes)
+    return model
 
-    specialist_models = {}
-    for idx, info in HIERARCHY.items():
-        spec_path = os.path.join(MODELS_DIR, info['model_file'])
-        
-        classes = CLASS_MAP.get(idx, [])
-        
-        if len(classes) <= 1:
-             specialist_models[idx] = {'type': 'direct', 'class': classes[0], 'group_name': info['name']}
-             continue
+ROUTER_MODEL = None
 
-        model = load_model_architecture('specialist', len(classes))
-        
-        if os.path.exists(spec_path):
-            model.load_state_dict(torch.load(spec_path, map_location=DEVICE))
-            model.to(DEVICE).eval()
-            specialist_models[idx] = {'type': 'model', 'model': model, 'classes': classes, 'group_name': info['name']}
+@app.on_event("startup")
+async def startup_event():
+    global ROUTER_MODEL
+    print("⏳ Loading Router Model...")
+    try:
+        router = build_router()
+        router_path = os.path.join(MODELS_DIR, 'router.pth')
+        if os.path.exists(router_path):
+            router.load_state_dict(torch.load(router_path, map_location=DEVICE))
+            router.to(DEVICE).eval()
+            ROUTER_MODEL = router
+            print("✅ Router Loaded (Memory Safe Mode)")
         else:
-            print(f"❌ Specialist Model Missing: {info['model_file']}")
+            print(f"❌ Router missing at {router_path}")
+    except Exception as e:
+        print(f"❌ Failed to load router: {e}")
 
-    return router_model, specialist_models
+def load_specialist_on_demand(group_idx):
+    info = HIERARCHY.get(group_idx)
+    if not info: return None, None, None
 
-router, specialists = load_hierarchical_models()
+    classes = CLASS_MAP.get(group_idx, [])
+    
+    if len(classes) <= 1:
+        return 'direct', classes[0], info['name']
+
+    print(f"⏳ Lazy Loading Specialist: {info['name']}...")
+    model = build_specialist(len(classes))
+    spec_path = os.path.join(MODELS_DIR, info['model_file'])
+    
+    if os.path.exists(spec_path):
+        model.load_state_dict(torch.load(spec_path, map_location=DEVICE))
+        model.to(DEVICE).eval()
+        return model, classes, info['name']
+    else:
+        print(f"❌ Specialist missing: {info['model_file']}")
+        return None, None, None
 
 preprocess = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -103,11 +107,11 @@ preprocess = transforms.Compose([
 def analyze_symptoms(diagnosis, pain_level, vision_loss, itchiness):
     warnings = []
     if diagnosis == "Conjunctivitis" and pain_level == "Severe":
-        warnings.append("⚠️ AI Diagnosis Mismatch: Conjunctivitis typically does not cause severe pain. This could be Glaucoma or Scleritis. Seek urgent care.")
+        warnings.append("⚠️ Pain Mismatch: Severe pain is unusual for Pink Eye. Rule out Glaucoma.")
     if vision_loss == "Yes" and diagnosis in ["Conjunctivitis", "Blepharitis", "Hemorrhage"]:
-         warnings.append("⚠️ Vision Loss Warning: Surface conditions usually don't affect vision. This might be Uveitis or Keratitis.")
+         warnings.append("⚠️ Vision Loss Warning: Surface conditions usually don't affect vision. Check for Uveitis.")
     if itchiness == "Yes" and diagnosis == "Conjunctivitis":
-        warnings.append("✅ Symptom Match: Itchiness strongly supports Allergic Conjunctivitis.")
+        warnings.append("✅ Symptom Match: Itchiness supports Allergic Conjunctivitis.")
     return warnings
 
 @app.post("/predict")
@@ -117,7 +121,9 @@ async def predict(
     vision: str = Form(...),
     itch: str = Form(...)
 ):
-    if router is None: return {"error": "AI system offline (Models missing)"}
+    if ROUTER_MODEL is None: return {"error": "Router is offline"}
+
+    gc.collect()
 
     try:
         contents = await file.read()
@@ -125,61 +131,61 @@ async def predict(
         input_tensor = preprocess(image).unsqueeze(0).to(DEVICE)
         
         with torch.no_grad():
-            router_out = router(input_tensor)
+            router_out = ROUTER_MODEL(input_tensor)
             router_probs = torch.nn.functional.softmax(router_out[0], dim=0)
             group_idx = torch.argmax(router_probs).item()
             group_conf = router_probs[group_idx].item()
         
-        if group_idx not in specialists:
-             return {"error": f"Specialist model for group {group_idx} failed to load."}
+        specialist, classes, group_name = load_specialist_on_demand(group_idx)
         
-        spec_data = specialists[group_idx]
-        
+        if not specialist:
+            return {"error": "Specialist model could not be loaded."}
+
         heatmap_base64 = None
         probs_dict = {}
 
-        if spec_data['type'] == 'direct':
-            diagnosis = spec_data['class']
+        if specialist == 'direct':
+            diagnosis = classes
             confidence = group_conf * 100
             probs_dict = {diagnosis: 1.0}
         else:
-            model = spec_data['model']
             with torch.no_grad():
-                out = model(input_tensor)
+                out = specialist(input_tensor)
                 probs = torch.nn.functional.softmax(out[0], dim=0)
                 class_idx = torch.argmax(probs).item()
             
-            diagnosis = spec_data['classes'][class_idx]
+            diagnosis = classes[class_idx]
             confidence = probs[class_idx].item() * 100
-            probs_dict = {spec_data['classes'][i]: float(probs[i].item()) for i in range(len(spec_data['classes']))}
+            probs_dict = {classes[i]: float(probs[i].item()) for i in range(len(classes))}
 
-            target_layer = [model.features[-1]]
-            cam = GradCAM(model=model, target_layers=target_layer)
-            grayscale_cam = cam(input_tensor=input_tensor, targets=[ClassifierOutputTarget(class_idx)])
-            rgb_img = np.float32(image.resize((224, 224))) / 255
-            vis = show_cam_on_image(rgb_img, grayscale_cam[0, :], use_rgb=True)
-            
-            buff = io.BytesIO()
-            Image.fromarray(vis).save(buff, format="JPEG")
-            heatmap_base64 = base64.b64encode(buff.getvalue()).decode("utf-8")
+            try:
+                target_layer = [specialist.features[-1]]
+                cam = GradCAM(model=specialist, target_layers=target_layer)
+                grayscale_cam = cam(input_tensor=input_tensor, targets=[ClassifierOutputTarget(class_idx)])
+                rgb_img = np.float32(image.resize((224, 224))) / 255
+                vis = show_cam_on_image(rgb_img, grayscale_cam[0, :], use_rgb=True)
+                
+                buff = io.BytesIO()
+                Image.fromarray(vis).save(buff, format="JPEG")
+                heatmap_base64 = base64.b64encode(buff.getvalue()).decode("utf-8")
+            except Exception as e:
+                print(f"Heatmap skipped to save memory: {e}")
+
+            del specialist
+            del cam
+            gc.collect()
 
         hybrid_warnings = analyze_symptoms(diagnosis, pain, vision, itch)
         details = MEDICAL_INFO.get(diagnosis, {}).copy()
         
         if not details:
-            details = {
-                "description": "Detailed medical info pending update.",
-                "severity": "Unknown", 
-                "advice": "Please consult a doctor.",
-                "treatment": [],
-                "symptoms": []
-            }
+            details = {"description": "N/A", "severity": "Unknown", "advice": "Consult Doctor", "treatment": [], "symptoms": []}
 
         if hybrid_warnings:
             details['advice'] = str(details.get('advice', '')) + " " + " ".join(hybrid_warnings)
 
         return {
-            "group_name": spec_data['group_name'],
+            "group_name": group_name,
             "diagnosis": diagnosis,
             "confidence": confidence,
             "heatmap": f"data:image/jpeg;base64,{heatmap_base64}" if heatmap_base64 else None,
@@ -189,7 +195,7 @@ async def predict(
         }
 
     except Exception as e:
-        print(f"Prediction Error: {e}")
+        print(f"Error: {e}")
         return {"error": str(e)}
 
 if __name__ == "__main__":
