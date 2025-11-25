@@ -16,7 +16,7 @@ function App() {
   const [heatmap, setHeatmap] = useState(null)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
-  const [activeTab, setActiveTab] = useState('treatment') 
+  const [activeTab, setActiveTab] = useState('treatment')
   const [showHeatmap, setShowHeatmap] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
 
@@ -74,7 +74,7 @@ function App() {
       if (response.data.error) throw new Error(response.data.error);
       setResult(response.data)
       setHeatmap(response.data.heatmap)
-      setActiveTab('treatment') 
+      setActiveTab('treatment')
     } catch (error) {
       alert(`Error: ${error.message}`)
     } finally {
@@ -227,7 +227,7 @@ function App() {
                     {/* HYBRID WARNINGS */}
                     {result.hybrid_warnings && result.hybrid_warnings.length > 0 && (
                         <div className="p-4 border-l-4 shadow-sm bg-amber-50 border-amber-500 rounded-xl">
-                            <h4 className="flex items-center gap-2 font-bold text-amber-800"><ShieldAlert className="w-5 h-5"/> Safety Alerts</h4>
+                            <h4 className="flex items-center gap-2 font-bold text-amber-800"><ShieldAlert className="w-5 h-5"/> Clinical Safety Alerts</h4>
                             {result.hybrid_warnings.map((w, i) => <p key={i} className="mt-1 text-sm text-amber-700">{w}</p>)}
                         </div>
                     )}
@@ -235,7 +235,7 @@ function App() {
                     {/* MEDICAL TABS */}
                     <div className="p-6 bg-white border shadow-lg rounded-3xl border-slate-200">
                         <div className="flex gap-4 pb-4 mb-4 overflow-x-auto border-b border-slate-100">
-                            <button onClick={() => setActiveTab('treatment')} className={`font-bold pb-2 border-b-2 transition-colors ${activeTab === 'treatment' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'}`}>Treatment</button>
+                            <button onClick={() => setActiveTab('treatment')} className={`font-bold pb-2 border-b-2 transition-colors ${activeTab === 'treatment' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'}`}>Treatment Plan</button>
                             <button onClick={() => setActiveTab('doctor')} className={`font-bold pb-2 border-b-2 transition-colors ${activeTab === 'doctor' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'}`}>Doctor's Note</button>
                             <button onClick={() => setActiveTab('symptoms')} className={`font-bold pb-2 border-b-2 transition-colors ${activeTab === 'symptoms' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'}`}>Symptoms</button>
                             <button onClick={() => setActiveTab('stats')} className={`font-bold pb-2 border-b-2 transition-colors ${activeTab === 'stats' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'}`}>Stats</button>
@@ -262,12 +262,12 @@ function App() {
                                 <div className="space-y-4 animate-fade-in">
                                     <div className="p-4 border border-blue-100 bg-blue-50 rounded-xl">
                                         <h4 className="flex items-center gap-2 mb-2 font-bold text-blue-900">
-                                            <Stethoscope className="w-4 h-4" /> Clinical Advice
+                                            <Stethoscope className="w-4 h-4" /> Clinical Assessment
                                         </h4>
                                         <p className="leading-relaxed text-slate-700">{result.details.advice}</p>
                                     </div>
                                     <div className="p-4 border rounded-xl bg-slate-50 border-slate-100">
-                                         <p className="text-sm text-slate-500"><strong>Severity:</strong> {result.details.severity}</p>
+                                         <p className="text-sm text-slate-500"><strong>Severity Level:</strong> {result.details.severity}</p>
                                          <p className="mt-1 text-sm text-slate-500"><strong>Condition Description:</strong> {result.details.description}</p>
                                     </div>
                                     <a href="https://www.google.com/maps/search/ophthalmologist+near+me" target="_blank" className="block w-full py-3 font-bold text-center text-blue-600 transition border-2 border-blue-100 rounded-xl hover:bg-blue-50">
