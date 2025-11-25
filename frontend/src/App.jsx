@@ -102,20 +102,182 @@ function App() {
   const downloadPDF = () => {
     if (!result) return;
     const doc = new jsPDF();
-    doc.setFillColor(41, 128, 185); doc.rect(0, 0, 210, 40, 'F');
-    doc.setTextColor(255, 255, 255); doc.setFontSize(24); doc.text("OphthalmoAI Report", 20, 25);
+    const brandColor = [0, 77, 153]; 
+    const accentColor = [240, 248, 255]; 
     
-    doc.setTextColor(0, 0, 0); doc.setFontSize(12);
-    doc.text(`Diagnosis: ${result.diagnosis}`, 20, 60);
+    const addHeader = (pageTitle) => {
+        doc.setFillColor(...brandColor);
+        doc.rect(0, 0, 210, 30, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        doc.text("OphthalmoAI Diagnostics", 15, 20);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(pageTitle, 200, 20, { align: 'right' });
+        doc.text(`Date: ${new Date().toLocaleDateString()}`, 200, 25, { align: 'right' });
+    };
+
+    const addFooter = (pageNumber) => {
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(8);
+        doc.text("Disclaimer: AI screening tool only. Consult a specialist for confirmation.", 105, 285, { align: "center" });
+        doc.text(`Page ${pageNumber}`, 200, 285, { align: "right" });
+    };
+  
+    addHeader("Patient Report");
     
-    if (heatmap) doc.addImage(heatmap, 'JPEG', 20, 80, 80, 80);
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("1. Patient Intake Form (Self-Reported)", 15, 45);
     
     autoTable(doc, {
-        startY: 170,
-        head: [['Category', 'Details']],
-        body: [['Advice', result.details.advice], ['Treatment', result.details.treatment.join(', ')]]
+        startY: 50,
+        head: [['Symptom Category', 'Patient Response']],
+        body: [
+            ['Pain Level', pain],
+            ['Vision Blurry?', vision],
+            ['Itchiness', itch],
+            ['Halos / Glare', halos],
+            ['Discharge', discharge],
+            ['Light Sensitivity', lightSens]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [100, 100, 100] },
+        styles: { fontSize: 10 }
     });
-    doc.save("Report.pdf");
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("2. AI Diagnostic Result", 15, 115);
+
+    doc.setDrawColor(0);
+    doc.setFillColor(...accentColor);
+    doc.roundedRect(15, 120, 180, 30, 3, 3, 'F');
+    
+    doc.setFontSize(16);
+    doc.setTextColor(...brandColor);
+    doc.text(result.diagnosis.toUpperCase().replace(/_/g, ' '), 25, 135);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(50, 50, 50);
+    doc.text(`Confidence Score: ${result.confidence.toFixed(1)}%`, 25, 142);
+    doc.text(`Severity Level: ${result.details.severity}`, 120, 142);
+
+    doc.setFontSize(12);
+    doc.setTextColor(0,0,0);
+    doc.setFont("helvetica", "bold");
+    doc.text("3. Diagnostic Imaging", 15, 165);
+
+    try {
+        if (preview) {
+            doc.addImage(preview, 'JPEG', 15, 170, 80, 80);
+            doc.setFontSize(9);
+            doc.text("Patient Scan", 55, 255, {align: 'center'});
+        }
+        if (heatmap) {
+            doc.addImage(heatmap, 'JPEG', 110, 170, 80, 80);
+            doc.text("AI Attention Heatmap (Grad-CAM)", 150, 255, {align: 'center'});
+        }
+    } catch (e) { console.log("Image add error", e); }
+
+    addFooter(1);
+
+    doc.addPage();
+    addHeader("Clinical Analysis");
+
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "bold");
+    doc.text("4. Condition Details", 15, 45);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const descLines = doc.splitTextToSize(result.details.description, 180);
+    doc.text(descLines, 15, 55);
+
+    doc.setDrawColor(0, 77, 153);
+    doc.setLineWidth(0.5);
+    doc.line(15, 70, 195, 70);
+    
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 77, 153);
+    doc.text("Doctor's Note / Clinical Advice:", 15, 80);
+    doc.setFontSize(10);
+    doc.setTextColor(0,0,0);
+    doc.setFont("helvetica", "normal");
+    const adviceLines = doc.splitTextToSize(result.details.advice, 180);
+    doc.text(adviceLines, 15, 90);
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("5. Treatment Protocol", 15, 115);
+
+    autoTable(doc, {
+        startY: 120,
+        head: [['Recommended Treatments']],
+        body: result.details.treatment.map(t => [`• ${t}`]),
+        theme: 'striped',
+        headStyles: { fillColor: brandColor },
+    });
+
+    doc.text("6. Key Symptoms to Monitor", 15, doc.lastAutoTable.finalY + 15);
+    autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 20,
+        head: [['Symptoms']],
+        body: result.details.symptoms.map(s => [`• ${s}`]),
+        theme: 'striped',
+        headStyles: { fillColor: [100, 100, 100] },
+    });
+
+    addFooter(2);
+
+    doc.addPage();
+    addHeader("Action Plan");
+
+    let yPos = 45;
+
+    if (result.hybrid_warnings && result.hybrid_warnings.length > 0) {
+        doc.setFillColor(255, 235, 238); // Red background
+        doc.rect(15, yPos, 180, 25 + (result.hybrid_warnings.length * 5), 'F');
+        doc.setTextColor(200, 0, 0);
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("⚠️ SAFETY ALERT", 25, yPos + 10);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        result.hybrid_warnings.forEach((warn, i) => {
+            doc.text(`• ${warn}`, 25, yPos + 20 + (i*6));
+        });
+        yPos += 40 + (result.hybrid_warnings.length * 5);
+    }
+
+    doc.setTextColor(0, 77, 153);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("7. Find Specialized Care", 15, yPos);
+
+    yPos += 10;
+    doc.setFillColor(245, 245, 245);
+    doc.roundedRect(15, yPos, 180, 50, 3, 3, 'F');
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(11);
+    doc.text("Based on this analysis, professional consultation is recommended.", 25, yPos + 15);
+    doc.text("Click the link below to find Ophthalmologists near your current location.", 25, yPos + 25);
+
+    doc.setTextColor(0, 0, 255);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    const mapUrl = "https://www.google.com/maps/search/ophthalmologist+near+me";
+    doc.textWithLink("📍 CLICK HERE TO OPEN GOOGLE MAPS", 25, yPos + 40, { url: mapUrl });
+
+    addFooter(3);
+
+    doc.save(`Eye_Report_${new Date().toISOString().slice(0,10)}.pdf`);
   }
 
   const ProbabilityBar = ({ label, percentage }) => {
@@ -227,7 +389,7 @@ function App() {
                     {/* HYBRID WARNINGS */}
                     {result.hybrid_warnings && result.hybrid_warnings.length > 0 && (
                         <div className="p-4 border-l-4 shadow-sm bg-amber-50 border-amber-500 rounded-xl">
-                            <h4 className="flex items-center gap-2 font-bold text-amber-800"><ShieldAlert className="w-5 h-5"/> Clinical Safety Alerts</h4>
+                            <h4 className="flex items-center gap-2 font-bold text-amber-800"><ShieldAlert className="w-5 h-5"/> Safety Alerts</h4>
                             {result.hybrid_warnings.map((w, i) => <p key={i} className="mt-1 text-sm text-amber-700">{w}</p>)}
                         </div>
                     )}
