@@ -48,50 +48,133 @@ The system predicts the following:
 
 ---
 
-## 📦 Tech Stack
-
-### **Frontend**
-- React.js  
-- TailwindCSS  
-- Axios  
-- Toast UI (Notifications)
-
-### **Backend**
-- FastAPI  
-- Uvicorn  
-- PyTorch
-- Python 3.10+
-
-### **CI/CD & Deployment**
-- Docker  
-- Railway / Render / AWS EC2  
-- GitHub Actions  
-
----
-
-## 📚 **Citation**
-
-If you use **OpthalmoAI** in your research, please cite:
-
-```
-@software{opthalmoai2025,
-  author = {Kundu, Akash},
-  title = {OpthalmoAI: AI-powered ophthalmology diagnosis system},
-  year = {2025},
-  publisher = {GitHub},
-  url = {https://github.com/AkashKundu114/OpthalmoAI}
-}
+## Frontend Setup
+```bash
+cd frontend
+npm install
 ```
 
 ---
 
-## 📄 **License**
+## ⚡ How to Run
 
-This project is licensed under the **MIT License**.
+### Step 1 — Dataset & Model
+Download dataset → put in `dataset/` → train:
+```bash
+python scripts/train_model.py
+```
+
+Creates:
+```
+models/model.pth
+```
+
+### Step 2 — Start Backend
+```bash
+python backend/main.py
+```
+
+### Step 3 — Start Frontend
+```bash
+cd frontend
+npm run dev
+```
 
 ---
 
-## 📬 Contact
+## 📂 Project Structure
+```
+backend/  
+frontend/  
+scripts/  
+models/  
+dataset/
+```
 
-**Author:** Akash Kundu  
-GitHub: https://github.com/AkashKundu114
+---
+
+## 📊 Architecture Diagram
+```mermaid
+flowchart TD
+
+%% ============================================
+%% FRONTEND SYSTEM
+%% ============================================
+subgraph FRONTEND React Vite Tailwind
+    FE1[User Interface]
+    FE2[Image Upload Module]
+    FE3[Webcam Capture Module]
+    FE4[Prediction Dashboard Results]
+
+    FE1 --> FE2
+    FE1 --> FE3
+    FE2 --> API
+    FE3 --> API
+end
+
+%% ============================================
+%% API GATEWAY AND ROUTING
+%% ============================================
+API[FastAPI Main Router]
+API --> VR[Validation and Request Parser]
+VR --> BE
+
+%% ============================================
+%% BACKEND PROCESSING LAYERS
+%% ============================================
+subgraph BACKEND FastAPI Server
+    BE[Application Controller]
+    BP[Image Preprocessing Resize Normalize]
+    BE --> BP
+    BP --> MS
+end
+
+%% ============================================
+%% MODEL SERVICE
+%% ============================================
+subgraph MODEL SERVICE PyTorch
+    MS[Model Loader EfficientNetB3]
+    MI[Inference Forward Pass]
+    MP[Softmax Output Six Classes]
+    MS --> MI --> MP
+end
+
+MP --> RESP
+
+%% ============================================
+%% RESPONSE HANDLING
+%% ============================================
+RESP[JSON Response Prediction Confidence]
+RESP --> FE4
+
+%% ============================================
+%% TRAINING AND DATA PIPELINE
+%% ============================================
+subgraph TRAINING PIPELINE
+    DS[Dataset Folder Eye Images]
+    DA[Data Augmentation Flip Rotate Color Adjust]
+    DL[Data Loader Train Validation Split]
+    TM[Training Script train model py]
+    EV[Model Evaluation Metrics]
+    SM[Save Model File models model pth]
+
+    DS --> DA --> DL --> TM --> EV --> SM
+end
+
+%% BACKEND LOADS TRAINED MODEL
+SM --> MS
+
+%% ============================================
+%% STORAGE SYSTEM
+%% ============================================
+subgraph STORAGE
+    ST1[Model Files model pth]
+    ST2[Dataset Local or External]
+    ST3[Training Logs and Metrics]
+end
+
+SM --> ST1
+DS --> ST2
+EV --> ST3
+```
+
