@@ -27,7 +27,6 @@ scripts/pycache/
 *.tflite
 
 models/*
-!models/*.pth
 
 run_backend.bat
 run_frontend.bat
