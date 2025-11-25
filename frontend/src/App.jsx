@@ -10,6 +10,51 @@ import {
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
+const TabButton = ({ active, onClick, icon, label }) => (
+  <button 
+    onClick={onClick}
+    className={`flex-1 py-4 px-4 flex items-center justify-center gap-2 text-sm font-bold transition-all relative whitespace-nowrap
+      ${active ? 'text-blue-600 bg-blue-50/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+  >
+    {icon}
+    {label}
+    {active && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full" />}
+  </button>
+)
+
+const SymptomSelect = ({ label, value, setValue, options }) => (
+  <div>
+    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">{label}</label>
+    <div className="relative">
+      <select 
+        value={value} 
+        onChange={(e) => setValue(e.target.value)} 
+        className="w-full p-3 pr-8 text-sm transition bg-white border shadow-sm appearance-none rounded-xl border-slate-200 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+      >
+        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+      <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-slate-400">
+        <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+      </div>
+    </div>
+  </div>
+)
+
+const ProbabilityBar = ({ label, percentage }) => {
+  const color = percentage > 80 ? 'bg-blue-600' : (percentage > 50 ? 'bg-blue-400' : 'bg-blue-300');
+  return (
+    <div className="space-y-1 text-sm">
+      <div className="flex justify-between font-medium text-slate-700">
+        <span>{label}</span>
+        <span>{percentage.toFixed(1)}%</span>
+      </div>
+      <div className="w-full h-2 rounded-full bg-slate-100">
+        <div className={`${color} h-2 rounded-full transition-all duration-700`} style={{ width: `${percentage}%` }}></div>
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
@@ -165,7 +210,8 @@ function App() {
     doc.setFontSize(10);
     doc.setTextColor(50, 50, 50);
     doc.text(`Confidence Score: ${result.confidence.toFixed(1)}%`, 25, diagnosisY + 30);
-    doc.text(`Severity Level: ${result.details.severity}`, 25, diagnosisY + 35); 
+    
+    doc.text(`Severity Level: ${result.details.severity}`, 100, diagnosisY + 30); 
 
     const imagingY = diagnosisY + 50;
     doc.setFontSize(12);
@@ -298,6 +344,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-['Inter'] pb-10">
+      
+      {/* CROPPER MODAL */}
       {isCropping && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-black bg-opacity-95">
             <div className="relative w-full max-w-md h-[50vh] sm:h-[60vh] bg-gray-900 rounded-xl overflow-hidden shadow-2xl border border-gray-800">
@@ -331,6 +379,8 @@ function App() {
 
       <main className="px-4 py-8 mx-auto max-w-7xl sm:px-6 lg:px-8 sm:py-12">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+          
+          {/* LEFT: UPLOAD & INPUTS */}
           <div className="space-y-6 lg:col-span-5">
             <div className="overflow-hidden bg-white border shadow-sm rounded-3xl border-slate-200/60">
               <div className="p-1">
@@ -346,6 +396,7 @@ function App() {
                 ) : (
                     <div className="relative h-64 overflow-hidden bg-black rounded-2xl sm:h-80 group">
                         <img src={showHeatmap && heatmap ? heatmap : preview} className="object-contain w-full h-full transition-opacity duration-300" />
+                        
                         <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between p-4 transition-opacity duration-300 opacity-0 bg-gradient-to-t from-black/80 to-transparent group-hover:opacity-100">
                            {heatmap && (
                               <button 
@@ -362,6 +413,7 @@ function App() {
               </div>
 
               <div className="p-6">
+                {/* SYMPTOM QUESTIONNAIRE */}
                 {preview && !result && (
                     <div className="space-y-5 animate-fade-in">
                         <div className="flex items-center gap-2 pb-3 text-blue-900 border-b border-blue-50">
@@ -413,9 +465,12 @@ function App() {
             </div>
           </div>
 
+          {/* RIGHT: RESULTS */}
           <div className="lg:col-span-7">
             {result ? (
               <div className="space-y-6 animate-fade-in">
+                
+                {/* DIAGNOSIS CARD */}
                 <div className={`relative overflow-hidden p-6 sm:p-8 rounded-3xl shadow-xl text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6
                   ${result.diagnosis === 'Normal' 
                     ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20' 
@@ -449,6 +504,7 @@ function App() {
                   </div>
                 </div>
 
+                {/* SAFETY ALERTS */}
                 {result.hybrid_warnings && result.hybrid_warnings.length > 0 && (
                     <div className="flex items-start gap-4 p-5 border-l-4 shadow-sm bg-amber-50 border-amber-500 rounded-xl">
                         <ShieldAlert className="w-6 h-6 mt-1 text-amber-600 shrink-0" />
@@ -461,6 +517,7 @@ function App() {
                     </div>
                 )}
 
+                {/* TABBED REPORT PANEL */}
                 <div className="overflow-hidden bg-white border shadow-lg rounded-3xl border-slate-200">
                     <div className="flex overflow-x-auto border-b border-slate-100 scrollbar-hide">
                         <TabButton active={activeTab === 'treatment'} onClick={() => setActiveTab('treatment')} icon={<Pill className="w-4 h-4" />} label="Plan" />
@@ -557,40 +614,11 @@ function App() {
                     <p className="mt-1 text-sm opacity-60">Upload a scan to begin</p>
                 </div>
             )}
+          </div>
         </div>
       </main>
     </div>
   )
 }
-
-const TabButton = ({ active, onClick, icon, label }) => (
-  <button 
-    onClick={onClick}
-    className={`flex-1 py-4 px-4 flex items-center justify-center gap-2 text-sm font-bold transition-all relative whitespace-nowrap
-      ${active ? 'text-blue-600 bg-blue-50/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
-  >
-    {icon}
-    {label}
-    {active && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full" />}
-  </button>
-)
-
-const SymptomSelect = ({ label, value, setValue, options }) => (
-  <div>
-    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">{label}</label>
-    <div className="relative">
-      <select 
-        value={value} 
-        onChange={(e) => setValue(e.target.value)} 
-        className="w-full p-3 pr-8 text-sm transition bg-white border shadow-sm appearance-none rounded-xl border-slate-200 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-      >
-        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-      </select>
-      <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-slate-400">
-        <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-      </div>
-    </div>
-  </div>
-)
 
 export default App
