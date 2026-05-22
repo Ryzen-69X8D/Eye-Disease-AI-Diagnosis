@@ -73,7 +73,7 @@ const ChatBot = ({ diagnosisContext }) => {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
       const response = await axios.post(`${apiUrl}/chat`, {
         message: messageText,
-        history: messages.filter(m => m !== messages[0]), // skip greeting
+        history: messages.slice(1), // skip greeting
         diagnosis_context: diagnosisContext || null
       })
 
@@ -84,7 +84,7 @@ const ChatBot = ({ diagnosisContext }) => {
     } catch {
       setMessages([...updatedMessages, {
         role: 'assistant',
-        content: "I'm having trouble connecting to the server. Please check your connection or consult a qualified ophthalmologist directly for medical questions."
+        content: "I'm having trouble connecting to the server. Please check that the backend is running and try again. For urgent eye concerns, contact a qualified ophthalmologist directly."
       }])
     } finally {
       setLoading(false)
@@ -99,7 +99,6 @@ const ChatBot = ({ diagnosisContext }) => {
   }
 
   const formatMessage = (content) => {
-    // Simple markdown-ish formatting for bold
     return content.split('**').map((part, i) =>
       i % 2 === 1
         ? <strong key={i} className="font-semibold">{part}</strong>
@@ -107,7 +106,8 @@ const ChatBot = ({ diagnosisContext }) => {
     )
   }
 
-  const unreadCount = isOpen ? 0 : messages.filter(m => m.role === 'assistant').length - 1
+  const NAVY = '#0d2137'
+  const TEAL = '#00adb5'
 
   return (
     <>
@@ -121,16 +121,12 @@ const ChatBot = ({ diagnosisContext }) => {
             : 'linear-gradient(135deg, #00adb5, #007a80)',
           boxShadow: '0 8px 32px rgba(0, 173, 181, 0.4)'
         }}
+        aria-label={isOpen ? 'Close AI Doctor chat' : 'Open AI Doctor chat'}
       >
         {isOpen
           ? <X className="w-6 h-6 text-white" />
           : <MessageCircle className="w-6 h-6 text-white" />
         }
-        {!isOpen && unreadCount > 0 && (
-          <span className="absolute flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full -top-1 -right-1 bg-rose-500">
-            {unreadCount}
-          </span>
-        )}
       </button>
 
       {/* Chat Panel */}
@@ -152,7 +148,7 @@ const ChatBot = ({ diagnosisContext }) => {
           >
             <div className="flex items-center justify-center rounded-full w-9 h-9"
               style={{ background: 'rgba(0,173,181,0.25)', border: '1px solid rgba(0,173,181,0.4)' }}>
-              <Bot className="w-5 h-5" style={{ color: '#00adb5' }} />
+              <Bot className="w-5 h-5" style={{ color: TEAL }} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold leading-tight text-white">OphthalmoAI Doctor</p>
@@ -166,6 +162,7 @@ const ChatBot = ({ diagnosisContext }) => {
             <button
               onClick={() => setIsMinimized(!isMinimized)}
               className="p-1 transition rounded-lg hover:bg-white/10 text-white/60 hover:text-white"
+              aria-label={isMinimized ? 'Expand chat' : 'Minimise chat'}
             >
               <ChevronDown className={`w-4 h-4 transition-transform ${isMinimized ? 'rotate-180' : ''}`} />
             </button>
@@ -195,7 +192,7 @@ const ChatBot = ({ diagnosisContext }) => {
                       }}
                     >
                       {msg.role === 'assistant'
-                        ? <Bot className="w-3.5 h-3.5" style={{ color: '#00adb5' }} />
+                        ? <Bot className="w-3.5 h-3.5" style={{ color: TEAL }} />
                         : <User className="w-3.5 h-3.5" style={{ color: '#6366f1' }} />
                       }
                     </div>
@@ -225,7 +222,7 @@ const ChatBot = ({ diagnosisContext }) => {
                   <div className="flex items-end gap-2">
                     <div className="flex items-center justify-center rounded-full w-7 h-7 shrink-0"
                       style={{ background: 'rgba(0,173,181,0.12)' }}>
-                      <Bot className="w-3.5 h-3.5" style={{ color: '#00adb5' }} />
+                      <Bot className="w-3.5 h-3.5" style={{ color: TEAL }} />
                     </div>
                     <div className="border rounded-2xl"
                       style={{
@@ -244,7 +241,7 @@ const ChatBot = ({ diagnosisContext }) => {
               {messages.length <= 2 && !loading && (
                 <div className="px-3 pb-2 shrink-0" style={{ background: '#f8fafc' }}>
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <Sparkles className="w-3 h-3" style={{ color: '#00adb5' }} />
+                    <Sparkles className="w-3 h-3" style={{ color: TEAL }} />
                     <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#64748b' }}>
                       Quick questions
                     </span>
@@ -255,11 +252,7 @@ const ChatBot = ({ diagnosisContext }) => {
                         key={i}
                         onClick={() => sendMessage(q)}
                         className="text-[10px] px-2 py-1 rounded-full border transition-all hover:scale-105 active:scale-95"
-                        style={{
-                          background: 'white',
-                          border: '1px solid #cbd5e1',
-                          color: '#475569'
-                        }}
+                        style={{ background: 'white', border: '1px solid #cbd5e1', color: '#475569' }}
                       >
                         {q}
                       </button>
@@ -285,7 +278,7 @@ const ChatBot = ({ diagnosisContext }) => {
                       fontFamily: 'inherit',
                       maxHeight: '80px',
                     }}
-                    onFocus={e => e.target.style.borderColor = '#00adb5'}
+                    onFocus={e => e.target.style.borderColor = TEAL}
                     onBlur={e => e.target.style.borderColor = '#e2e8f0'}
                   />
                   <button
@@ -293,6 +286,7 @@ const ChatBot = ({ diagnosisContext }) => {
                     disabled={loading || !input.trim()}
                     className="flex items-center justify-center w-10 h-10 transition-all rounded-xl hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 shrink-0"
                     style={{ background: 'linear-gradient(135deg, #00adb5, #007a80)' }}
+                    aria-label="Send message"
                   >
                     {loading
                       ? <Loader2 className="w-4 h-4 text-white animate-spin" />
@@ -300,8 +294,9 @@ const ChatBot = ({ diagnosisContext }) => {
                     }
                   </button>
                 </div>
+                {/* FIX: Accurately reflects the actual backend (Claude / Ollama), not "LLaVA Vision AI" */}
                 <p className="text-center text-[9px] mt-1.5" style={{ color: '#94a3b8' }}>
-                  Powered by LLaVA Vision AI · Press Enter to send
+                  Powered by OphthalmoAI · Press Enter to send
                 </p>
               </div>
             </>
